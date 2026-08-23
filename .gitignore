@@ -1,0 +1,15 @@
+# Ignore local files
+.env
+.env.local
+*.env
+.venv/
+venv/
+env/
+
+# Ignore cache files
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Ignore .task files
+*.task
