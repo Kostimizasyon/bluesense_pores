@@ -13,3 +13,7 @@ __pycache__/
 
 # Ignore .task files
 *.task
+
+# Ignore images
+*.jpg
+*.png
