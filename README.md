@@ -17,3 +17,6 @@ WORKSPACE_NAME=
 API_KEY=
 MODEL_ID=
 ```
+## Note for update:
+
+Passing a `Dict[str, np.ndarray]` into `DetectionDataset` is deprecated in `0.30.0` and will be removed in `0.33.0`. Use a list of paths `List[str]` instead.

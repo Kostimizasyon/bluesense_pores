@@ -71,7 +71,7 @@ def segment_and_save(path: str, confidance: float, save_path: str = None):
     return image
 
 
-def annotate_path(path: str, confidence: float, class_name: str, export_type: int = 0, question_interval_percentage: int = 100):
+def annotate_path(path: str, confidence: float, class_name: str, question_interval_percentage: int = 100):
 
     if not (os.path.isdir(path) or os.path.splitext(path)[1].lower() in VALID_EXTS):
         raise ValueError("Path should be an image file or a directory")
@@ -127,31 +127,32 @@ def annotate_path(path: str, confidence: float, class_name: str, export_type: in
             detections[file_name] = image_detections
             images[file_name] = image
 
-            should_check = (count == 0) or ((count + 1) % interval == 0)
+            if question_interval_percentage < 100:
+                should_check = count % interval == 0
 
-            if should_check:
-                annotated = mask_annotator.annotate(scene=image.copy(), detections=image_detections)
-                annotated = label_annotator.annotate(scene=annotated, detections=image_detections)
+                if should_check:
+                    annotated = mask_annotator.annotate(scene=image.copy(), detections=image_detections)
+                    annotated = label_annotator.annotate(scene=annotated, detections=image_detections)
 
-                cv2.imshow("Original", image)
-                cv2.imshow("Segmented", annotated)
-                cv2.waitKey(0)
-                cv2.destroyAllWindows()
+                    cv2.imshow("Original", image)
+                    cv2.imshow("Segmented", annotated)
+                    cv2.waitKey(0)
+                    cv2.destroyAllWindows()
 
-                yn_check = lambda x: x.strip().upper() in ("Y", "N")
-                ans = ask_input("Change confidence? Y / N: ", yn_check)
+                    yn_check = lambda x: x.strip().upper() in ("Y", "N")
+                    ans = ask_input("Change confidence? Y / N: ", yn_check)
 
-                if ans.strip().upper() == "Y":
-                    def is_valid_conf(x):
-                        try:
-                            v = float(x)
-                            return 0 <= v <= 1
-                        except ValueError:
-                            return False
+                    if ans.strip().upper() == "Y":
+                        def is_valid_conf(x):
+                            try:
+                                v = float(x)
+                                return 0 <= v <= 1
+                            except ValueError:
+                                return False
 
-                    new_conf = ask_input(f"Current confidance = {confidence} \n Enter new confidence (0-1): ", is_valid_conf)
-                    confidence = float(new_conf)
-                    confidance_config = InferenceConfiguration(confidence_threshold=confidence)
+                        new_conf = ask_input(f"Current confidance = {confidence} \n Enter new confidence (0-1): ", is_valid_conf)
+                        confidence = float(new_conf)
+                        confidance_config = InferenceConfiguration(confidence_threshold=confidence)
 
         dataset = sv.DetectionDataset(
             classes=[class_name],
@@ -178,11 +179,12 @@ def annotate_path(path: str, confidence: float, class_name: str, export_type: in
         )
     return dataset
 
-def save_dataset(dataset, export_type : int = 0, img_dir : str | None = None, output_dir : str = ""):
-    if not os.path.isdir(output_dir):
-        raise ValueError("Output dir is not a valid output dir")
-    if img_dir is not None and img_dir is not os.path.isdir(img_dir):
-        raise ValueError("Img dir is not a valid output dir")
+def save_dataset(dataset, img_dir : str, output_dir : str, export_type : int = 0):
+
+    os.makedirs(output_dir, exist_ok=True)
+    
+    if not os.path.isdir(img_dir):
+        raise ValueError("Img dir is not a valid dir")
     
     match export_type:
         case 0:
@@ -217,6 +219,8 @@ def save_dataset(dataset, export_type : int = 0, img_dir : str | None = None, ou
     return output_dir
 
 if __name__ == "__main__":
-    img = segment_and_save(path="57_PNG.jpg", confidance=0.2, save_path="dir/")
-    cv2.imshow("Image", img)
-    cv2.waitKey(0)
+    IMG_PATH = r"C:/Users/I use nvim btw46/bluesense_pores/src/segmentation_api/taw_images/"
+
+    dataset = annotate_path(class_name="pore", path=IMG_PATH, confidence=0.1, question_interval_percentage=100)
+    print("Saving dataset...")
+    save_dataset(dataset, export_type=0, img_dir=IMG_PATH, output_dir="exported_dataset")

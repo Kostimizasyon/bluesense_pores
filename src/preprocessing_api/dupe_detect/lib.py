@@ -1,5 +1,4 @@
 import os
-import argparse
 import imagehash
 from PIL import Image
 from itertools import combinations
@@ -81,11 +80,7 @@ def print_report(clusters: dict):
         print(f"Group {i+1}: {files}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dir_path", type=str, required=True)
-    parser.add_argument("--hash_size", type=int, default=8)
-    parser.add_argument("--threshold", type=int, default=5)
-    args = parser.parse_args()
+    TEST_DIR = "src/download_dataset/raw_images/pores1.5-2"
 
-    clusters = find_duplicates(args.dir_path, args.hash_size, args.threshold)
+    clusters = find_duplicates(TEST_DIR)
     print_report(clusters)

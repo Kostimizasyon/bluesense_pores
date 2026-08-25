@@ -1,5 +1,6 @@
 import os
 import sys
+from attrs import validate
 import requests
 from dotenv import load_dotenv
 from roboflow import Roboflow
@@ -19,7 +20,7 @@ rf = Roboflow(API_KEY)
 
 def download_from_project(project, folder_name: str | None = None,
                            run_dedupe: bool = True, delete_dupes: bool = True,
-                           verbose: bool = False, progress_interval_percentage: int = 10):
+                           verbose: bool = False, progress_interval_percentage: int = 10, validate: bool = False):
 
     if folder_name is None:
         folder_name = project.name
@@ -54,12 +55,9 @@ def download_from_project(project, folder_name: str | None = None,
     print(f"Found {total} images.")
     print(f"Downloading to: {output_dir}")
 
-    # Notify every N% of total, always at least every 1 record so small
-    # batches (or a 100%+ interval) still get periodic output.
     interval = max(1, round(total * progress_interval_percentage / 100))
 
     downloaded = 0
-    renamed = 0
     failed = 0
 
     for count, record in enumerate(records):
@@ -74,19 +72,15 @@ def download_from_project(project, folder_name: str | None = None,
                 print(f"Invalid Roboflow record, missing field: {e}")
             continue
 
-        path = os.path.join(output_dir, filename)
-
-        # Name collision — could be two different images that happen to
-        # share a filename across projects, not necessarily the same image.
-        # Rename rather than skip; the dedupe pass afterward decides what's
-        # actually a duplicate based on content, not filename.
-        if os.path.exists(path):
-            stem, ext = os.path.splitext(filename)
-            filename = f"{stem}_{image_id}{ext}"
-            path = os.path.join(output_dir, filename)
-            renamed += 1
-            if verbose:
-                print(f"Name collision, renaming to: {filename}")
+        # Always suffix with image_id — guaranteed unique per Roboflow
+        # record, unlike the original filename. Prevents two different
+        # images silently overwriting each other mid-download if their
+        # source names collide.
+        stem, ext = os.path.splitext(filename)
+        if not ext:
+            ext = ".jpg"  # source.roboflow.com always serves original.jpg regardless
+        unique_filename = f"{stem}_{image_id}{ext}"
+        path = os.path.join(output_dir, unique_filename)
 
         url = (
             f"https://source.roboflow.com/"
@@ -102,28 +96,26 @@ def download_from_project(project, folder_name: str | None = None,
 
             downloaded += 1
             if verbose:
-                print(f"Downloaded: {filename}")
+                print(f"Downloaded: {unique_filename}")
 
         except requests.RequestException as e:
             failed += 1
             if verbose:
-                print(f"Failed to download {filename}: {e}")
+                print(f"Failed to download {unique_filename}: {e}")
 
         except OSError as e:
             failed += 1
             if verbose:
-                print(f"Failed to save {filename}: {e}")
+                print(f"Failed to save {unique_filename}: {e}")
 
-        # Progress notification at the set interval, regardless of verbose.
         processed = count + 1
         if not verbose and (processed % interval == 0 or processed == total):
             pct = round(processed / total * 100)
             print(f"  ...{processed}/{total} processed ({pct}%) — "
-                  f"{downloaded} downloaded, {renamed} renamed, {failed} failed")
+                  f"{downloaded} downloaded, {failed} failed")
 
     print("\nDownload complete.")
     print(f"Downloaded: {downloaded}")
-    print(f"Renamed (name collision): {renamed}")
     print(f"Failed:     {failed}")
 
     if run_dedupe:
@@ -131,7 +123,7 @@ def download_from_project(project, folder_name: str | None = None,
         clusters = find_duplicates(output_dir)
         print_report(clusters)
 
-        if delete_dupes:
+        if delete_dupes and len(clusters) > 0:
             removed = 0
             for files in clusters.values():
                 for f in files[1:]:
@@ -140,7 +132,6 @@ def download_from_project(project, folder_name: str | None = None,
             print(f"\nDeleted {removed} duplicate image(s), kept 1 per group.")
 
     return output_dir
-
 
 def download_all(project_ids: list[str], **kwargs):
 
@@ -155,6 +146,8 @@ def download_all(project_ids: list[str], **kwargs):
         print(f"{'=' * 60}")
 
         try:
+            if validate:
+              input("Begin")
             project = rf.project(project_id)
             output_dir = download_from_project(project, **kwargs)
             results[project_id] = output_dir
@@ -175,8 +168,8 @@ def download_all(project_ids: list[str], **kwargs):
 if __name__ == "__main__":
     # List every project id you want to download here.
     PROJECT_IDS = [
-        "pores_datasets-e3gmv-ay73j",
-        "pores-a7nzb-ygar9",
-        "pores1_2-mnfpi"
+        "pores_datasets-e3gmv-ay73j", # corrupted?
+        "pores-a7nzb-ygar9",          # corrupted?
     ]
-    download_all(PROJECT_IDS, verbose=False, progress_interval_percentage=10)
+    download_all(PROJECT_IDS, verbose=False, progress_interval_percentage=10, validate=True)
+    
