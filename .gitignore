@@ -17,3 +17,5 @@ __pycache__/
 # Ignore images
 *.jpg
 *.png
+
+# Ignore dataset files

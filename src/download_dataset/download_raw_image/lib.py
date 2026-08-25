@@ -10,7 +10,7 @@ SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
-from preprocessing_api.dupe_detect.lib import find_duplicates, print_report
+from preprocessing_api.dupe_detect.lib import detect_and_delete_dupes
 
 load_dotenv()
 
@@ -19,8 +19,8 @@ API_KEY = os.getenv("API_KEY")
 rf = Roboflow(API_KEY)
 
 def download_from_project(project, folder_name: str | None = None,
-                           run_dedupe: bool = True, delete_dupes: bool = True,
-                           verbose: bool = False, progress_interval_percentage: int = 10, validate: bool = False):
+                           run_dedupe: bool = True, 
+                           verbose: bool = False, progress_interval_percentage: int = 10):
 
     if folder_name is None:
         folder_name = project.name
@@ -120,20 +120,12 @@ def download_from_project(project, folder_name: str | None = None,
 
     if run_dedupe:
         print("\nRunning duplicate check on downloaded batch...")
-        clusters = find_duplicates(output_dir)
-        print_report(clusters)
 
-        if delete_dupes and len(clusters) > 0:
-            removed = 0
-            for files in clusters.values():
-                for f in files[1:]:
-                    os.remove(os.path.join(output_dir, f))
-                    removed += 1
-            print(f"\nDeleted {removed} duplicate image(s), kept 1 per group.")
+        detect_and_delete_dupes(output_dir, threshold=5, validate=validate)
 
     return output_dir
 
-def download_all(project_ids: list[str], **kwargs):
+def download_all(project_ids: list[str], validate : bool = False, **kwargs):
 
     kwargs.pop("folder_name", None)  # each project gets its own folder name
 
@@ -168,8 +160,8 @@ def download_all(project_ids: list[str], **kwargs):
 if __name__ == "__main__":
     # List every project id you want to download here.
     PROJECT_IDS = [
-        "pores_datasets-e3gmv-ay73j", # corrupted?
-        "pores-a7nzb-ygar9",          # corrupted?
+        'seg-pore-h62dq',
+        'skin-pore-yektp'
     ]
-    download_all(PROJECT_IDS, verbose=False, progress_interval_percentage=10, validate=True)
+    download_all(PROJECT_IDS, verbose=False, progress_interval_percentage=10, validate=False)
     

@@ -1,4 +1,5 @@
 import os
+import shutil
 import imagehash
 from PIL import Image
 from itertools import combinations
@@ -68,19 +69,49 @@ def find_duplicates(dir_path: str, hash_size: int = 8, threshold: int = 5):
     return clusters
 
 
-def print_report(clusters: dict):
+def print_report(clusters: dict, verbose : bool = False):
     dupe_clusters = {k: v for k, v in clusters.items() if len(v) > 1}
     total_dupes = sum(len(v) - 1 for v in dupe_clusters.values())
+
+    if verbose:
+        print("\nDuplicate groups found:")
+        for i, (root, files) in enumerate(dupe_clusters.items()):
+            print(f"Group {i+1}: {files}")
 
     print(f"\nTotal images: {sum(len(v) for v in clusters.values())}")
     print(f"Duplicate groups found: {len(dupe_clusters)}")
     print(f"Redundant images (would be removed, keeping 1 per group): {total_dupes}\n")
 
-    for i, (root, files) in enumerate(dupe_clusters.items()):
-        print(f"Group {i+1}: {files}")
+    return total_dupes
+
+def detect_and_delete_dupes(dir_path: str, threshold: int = 5, validate : bool = False):
+
+    DEDUPED_DIR = os.path.join(dir_path, "deduped")
+    os.makedirs(DEDUPED_DIR, exist_ok=True)
+
+    for filename in os.listdir(dir_path):
+        source_path = os.path.join(dir_path, filename)
+        if (
+            os.path.isfile(source_path)
+            and os.path.splitext(filename)[1].lower() in VALID_EXTS
+        ):
+            shutil.copy2(source_path, os.path.join(DEDUPED_DIR, filename))
+
+    clusters = find_duplicates(DEDUPED_DIR, threshold=threshold)
+    total_dupes = print_report(clusters)
+
+    if len(clusters) > 0 and total_dupes > 0:
+
+        if validate:
+         input(f"\nFound {total_dupes} duplicate images. Press Enter to delete them (keeping 1 per group), or Ctrl+C to cancel...")
+
+        removed = 0
+        for files in clusters.values():
+            for f in files[1:]:
+                os.remove(os.path.join(DEDUPED_DIR, f))
+                removed += 1
+        print(f"\nDeleted {removed} duplicate image(s), kept 1 per group.")
 
 if __name__ == "__main__":
-    TEST_DIR = "src/download_dataset/raw_images/pores1.5-2"
-
-    clusters = find_duplicates(TEST_DIR)
-    print_report(clusters)
+    path = r"C:/raw_images/"
+    clusters = detect_and_delete_dupes(path, threshold=1, validate=True)
