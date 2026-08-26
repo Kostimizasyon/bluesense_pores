@@ -12,6 +12,8 @@ https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/
 
 Make sure to create a .env file with the structure:
 
+bluesense_pore_detection id for the best segmentation model ive trained
+
 ```
 WORKSPACE_NAME=
 API_KEY=
